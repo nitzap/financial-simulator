@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Calculadora de Independencia Financiera</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card" style="position: relative;">
+            <div class="lang-selector">
+                <button class="lang-btn" onclick="setLanguage('en')" id="btn-en">EN</button>
+                <button class="lang-btn" onclick="setLanguage('es')" id="btn-es">ES</button>
+            </div>
+            <h1 data-i18n="title">Calculadora de objetivo de ingresos por inversiones</h1>
+            <p class="subtitle" data-i18n="subtitle">
+                Modificá los valores y mirá cuánto capital necesitás y en cuántos años podrías llegar,
+                asumiendo reinversión total hasta alcanzar el objetivo.
+            </p>
+
+            <div class="grid">
+                <div class="field">
+                    <label data-i18n="initial_capital">Capital inicial</label>
+                    <div class="input-inline">
+                        <span>USD</span>
+                        <input id="initialCapital" type="number" min="0" step="100" value="50000">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="monthly_contribution">Aporte mensual</label>
+                    <div class="input-inline">
+                        <span>USD</span>
+                        <input id="monthlyContribution" type="number" min="0" step="50" value="2000">
+                    </div>
+                </div>
+
+                <div class="field" style="grid-column: 1 / -1;">
+                    <label data-i18n="recurring_incomes">Ingresos Recurrentes (Aguinaldos, Bonos, etc.)</label>
+                    <div id="recurringContainer">
+                        <!-- Filas dinámicas se agregan aquí -->
+                    </div>
+                    <button class="btn-small" onclick="addRecurringRow()" data-i18n="add_recurring">+ Agregar
+                        Recurrente</button>
+                </div>
+
+                <div class="field" style="grid-column: 1 / -1;">
+                    <label data-i18n="one_time_incomes">Ingresos Únicos Futuros</label>
+                    <div id="oneTimeContainer">
+                        <!-- Rows will be added here -->
+                    </div>
+                    <button class="btn-small" onclick="addOneTimeRow()" data-i18n="add_one_time">+ Agregar
+                        Ingreso</button>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="annual_return">Rentabilidad anual esperada</label>
+                    <div class="input-inline">
+                        <input id="annualReturn" type="number" min="0" max="30" step="0.1" value="7">
+                        <span>%</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="inflation_rate">Inflación anual esperada</label>
+                    <div class="input-inline">
+                        <input id="inflationRate" type="number" min="0" max="20" step="0.1" value="3">
+                        <span>%</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="tax_rate">Impuesto sobre rentabilidad</label>
+                    <div class="input-inline">
+                        <input id="taxRate" type="number" min="0" max="50" step="0.1" value="0">
+                        <span>%</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="target_income">Ingreso anual objetivo (por inversiones)</label>
+                    <div class="input-inline">
+                        <span>USD</span>
+                        <input id="targetIncome" type="number" min="0" step="1000" value="240000">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="withdrawal_rate">Tasa de retiro segura (sobre el capital)</label>
+                    <div class="input-inline">
+                        <input id="withdrawalRate" type="number" min="1" max="10" step="0.1" value="5">
+                        <span data-i18n="per_year">% / año</span>
+                        <span id="maxSafeRate" class="suggestion-text" onclick="applyMaxSafeRate()"
+                            title="Click to apply"></span>
+                    </div>
+                    <div id="withdrawalWarning" class="warning-text" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="recalculate()" data-i18n="calculate">Calcular</button>
+
+        <div class="results" id="results">
+            <!-- Resultados se rellenan por JS -->
+        </div>
+
+        <div style="margin-top: 32px; height: 300px; position: relative;">
+            <canvas id="growthChart"></canvas>
+        </div>
+
+        <div style="margin-top: 32px; height: 300px; position: relative;">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+
+        <p class="footer-note" data-i18n="footer_note">
+            Notas: Esto es un modelo simplificado. No contempla impuestos, inflación, cambios de tipo de cambio ni
+            años con rendimientos negativos.
+            Es una herramienta de simulación, no asesoramiento financiero.
+        </p>
+    </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
