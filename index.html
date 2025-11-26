@@ -27,7 +27,7 @@
                     <label data-i18n="initial_capital">Capital inicial</label>
                     <div class="input-inline">
                         <span>USD</span>
-                        <input id="initialCapital" type="number" min="0" step="100" value="50000">
+                        <input id="initialCapital" type="number" min="0" step="100" value="0">
                     </div>
                 </div>
 
@@ -35,7 +35,7 @@
                     <label data-i18n="monthly_contribution">Aporte mensual</label>
                     <div class="input-inline">
                         <span>USD</span>
-                        <input id="monthlyContribution" type="number" min="0" step="50" value="2000">
+                        <input id="monthlyContribution" type="number" min="0" step="50" value="200">
                     </div>
                 </div>
 
@@ -60,7 +60,7 @@
                 <div class="field">
                     <label data-i18n="annual_return">Rentabilidad anual esperada</label>
                     <div class="input-inline">
-                        <input id="annualReturn" type="number" min="0" max="30" step="0.1" value="7">
+                        <input id="annualReturn" type="number" min="0" max="30" step="0.1" value="10">
                         <span>%</span>
                     </div>
                 </div>
@@ -76,7 +76,7 @@
                 <div class="field">
                     <label data-i18n="tax_rate">Impuesto sobre rentabilidad</label>
                     <div class="input-inline">
-                        <input id="taxRate" type="number" min="0" max="50" step="0.1" value="0">
+                        <input id="taxRate" type="number" min="0" max="50" step="0.1" value="15">
                         <span>%</span>
                     </div>
                 </div>
@@ -85,14 +85,14 @@
                     <label data-i18n="target_income">Ingreso anual objetivo (por inversiones)</label>
                     <div class="input-inline">
                         <span>USD</span>
-                        <input id="targetIncome" type="number" min="0" step="1000" value="240000">
+                        <input id="targetIncome" type="number" min="0" step="1000" value="24000">
                     </div>
                 </div>
 
                 <div class="field">
                     <label data-i18n="withdrawal_rate">Tasa de retiro segura (sobre el capital)</label>
                     <div class="input-inline">
-                        <input id="withdrawalRate" type="number" min="1" max="10" step="0.1" value="5">
+                        <input id="withdrawalRate" type="number" min="1" max="10" step="0.1" value="5.5">
                         <span data-i18n="per_year">% / año</span>
                         <span id="maxSafeRate" class="suggestion-text" onclick="applyMaxSafeRate()"
                             title="Click to apply"></span>
