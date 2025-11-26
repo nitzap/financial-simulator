@@ -3,6 +3,8 @@
 ## Overview
 A client-side web application designed to simulate investment growth and determine the capital required to reach a specific target annual income (Financial Independence). It calculates the time to reach the goal based on initial capital, monthly contributions, recurring incomes, and expected returns, accounting for inflation and taxes.
 
+[Demo](https://nitzap.github.io/financial-simulator/)
+
 ## Technology Stack
 - **HTML5**: Semantic structure (`index.html`).
 - **CSS3**: Custom styling with a dark theme, responsive design (`style.css`).
