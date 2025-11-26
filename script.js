@@ -52,6 +52,7 @@ const translations = {
         tooltip_total: "Total",
         tooltip_total: "Total",
         warning_unsustainable: "Cuidado: Con esta tasa de retiro, tu capital real (ajustado por inflación) disminuirá con el tiempo.",
+        capital_lasts: "El capital dura ~{years} años",
         max_safe_rate: "(Máx. seguro: {rate}%)"
     },
     en: {
@@ -107,6 +108,7 @@ const translations = {
         tooltip_total: "Total",
         tooltip_total: "Total",
         warning_unsustainable: "Warning: With this withdrawal rate, your real capital (inflation-adjusted) will decrease over time.",
+        capital_lasts: "Capital lasts ~{years} years",
         max_safe_rate: "(Max safe: {rate}%)"
     }
 };
@@ -244,6 +246,7 @@ function simulateYearsToTarget(initial, monthly, recurringIncomes, oneTimeIncome
     let endSimulationMonth = maxMonths;
     let initialWithdrawalAmount = 0;
     let currentWithdrawalAmount = 0;
+    let depletionMonth = null; // Month when capital runs out
 
     // Initialize recurring amounts with their base values
     // We need to clone the array to avoid modifying the original if reused,
@@ -264,8 +267,16 @@ function simulateYearsToTarget(initial, monthly, recurringIncomes, oneTimeIncome
         if (!reached && capital >= currentTargetCapital) {
             reached = true;
             reachedMonth = months;
-            // Extend 5 years (60 months) more
-            endSimulationMonth = months + 60;
+
+            // If unsustainable, simulate longer to find depletion point
+            // Max 60 years post-retirement (720 months)
+            const isUnsustainable = withdrawalRate > (Math.max(0, annualReturnPct - inflationPct));
+            if (isUnsustainable) {
+                endSimulationMonth = months + 720;
+            } else {
+                // Extend 5 years (60 months) more for sustainable cases
+                endSimulationMonth = months + 60;
+            }
 
             // Calculate initial monthly withdrawal based on the 4% rule (or user input)
             // Withdrawal Rate is annual, so divide by 12
@@ -321,6 +332,14 @@ function simulateYearsToTarget(initial, monthly, recurringIncomes, oneTimeIncome
 
             // The withdrawal must also be adjusted for inflation to maintain purchasing power
             currentWithdrawalAmount *= (1 + monthlyInflation);
+
+            // Check for depletion
+            if (capital <= 0 && depletionMonth === null) {
+                capital = 0; // Floor at 0
+                depletionMonth = months;
+                // Stop simulation shortly after depletion
+                endSimulationMonth = months + 1;
+            }
         }
 
         // Save annual data
@@ -372,7 +391,8 @@ function simulateYearsToTarget(initial, monthly, recurringIncomes, oneTimeIncome
         totalContributed: totalContributed,
         yearlyData: yearlyData,
         monthlyData: monthlyData,
-        reachedMonth: reachedMonth
+        reachedMonth: reachedMonth,
+        depletionMonth: depletionMonth
     };
 }
 
@@ -507,7 +527,16 @@ function recalculate() {
     const warningEl = document.getElementById('withdrawalWarning');
     if (!result.isSustainable) {
         warningEl.style.display = 'flex';
-        warningEl.innerText = t('warning_unsustainable');
+        let warningText = t('warning_unsustainable');
+
+        // Add depletion info if available
+        if (result.simulation && result.simulation.depletionMonth) {
+            const monthsLasted = result.simulation.depletionMonth - result.simulation.reachedMonth;
+            const yearsLasted = (monthsLasted / 12).toFixed(1);
+            warningText += ` (${t('capital_lasts', { years: yearsLasted })})`;
+        }
+
+        warningEl.innerText = warningText;
     } else {
         warningEl.style.display = 'none';
     }
@@ -607,7 +636,6 @@ function renderChart(data, reachedMonth) {
     const labels = data.map(d => `${t('chart_year')} ${d.year}`);
     const contributedData = data.map(d => d.contributed);
     const growthData = data.map(d => Math.max(0, d.capital - d.contributed));
-    const withdrawnData = data.map(d => d.withdrawn || 0);
     const yearlyWithdrawnData = data.map(d => d.yearlyWithdrawn || 0);
 
     // Vertical annotation (hack using a thin bar dataset or plugin)
@@ -635,16 +663,10 @@ function renderChart(data, reachedMonth) {
                     stack: 'Stack 0',
                 },
                 {
-                    label: t('chart_withdrawals_acc'),
-                    data: withdrawnData,
-                    backgroundColor: '#ef4444', // Red
-                    stack: 'Stack 1', // Separate stack next to it
-                },
-                {
                     label: t('chart_withdrawals_annual'),
                     data: yearlyWithdrawnData,
                     backgroundColor: '#f97316', // Orange
-                    stack: 'Stack 2', // Another separate stack
+                    stack: 'Stack 1', // Separate stack
                 }
             ]
         },
@@ -663,6 +685,14 @@ function renderChart(data, reachedMonth) {
                 }
             },
             plugins: {
+                title: {
+                    display: true,
+                    text: 'Verde: Acumulación | Púrpura: Post-Retiro',
+                    color: '#e5e7eb',
+                    font: {
+                        size: 12
+                    }
+                },
                 legend: {
                     labels: { color: '#e5e7eb' }
                 },
