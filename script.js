@@ -164,10 +164,12 @@ function t(key, params = {}) {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    setLanguage(detectLanguage());
-    loadState(); // Load saved inputs
-});
+if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setLanguage(detectLanguage());
+        loadState(); // Load saved inputs
+    });
+}
 
 function formatMoney(value) {
     return value.toLocaleString("en-US", {
@@ -374,6 +376,67 @@ function simulateYearsToTarget(initial, monthly, recurringIncomes, oneTimeIncome
     };
 }
 
+function calculateFinancialData(config) {
+    const {
+        initialCapital,
+        monthlyContribution,
+        recurringIncomes, // Array of {amount, frequency}
+        oneTimeIncomes,   // Array of {amount, month}
+        annualReturn,
+        inflationRate,
+        taxRate,
+        targetIncome,
+        withdrawalRate
+    } = config;
+
+    if (withdrawalRate <= 0 || targetIncome <= 0) {
+        return { error: 'config_error' };
+    }
+
+    // Capital required TODAY for that income
+    const targetCapitalToday = targetIncome / (withdrawalRate / 100);
+
+    // Apply tax to nominal return
+    const netAnnualReturn = annualReturn * (1 - taxRate / 100);
+
+    // Validation: Check if withdrawal rate is sustainable in real terms
+    const maxSafeRate = Math.max(0, netAnnualReturn - inflationRate);
+    const isSustainable = withdrawalRate <= maxSafeRate;
+
+    // Convert oneTimeIncomes array to object map for simulation
+    const oneTimeIncomesMap = {};
+    if (Array.isArray(oneTimeIncomes)) {
+        oneTimeIncomes.forEach(item => {
+            if (item.amount > 0 && item.month > 0) {
+                oneTimeIncomesMap[item.month] = (oneTimeIncomesMap[item.month] || 0) + item.amount;
+            }
+        });
+    }
+
+    const simulation = simulateYearsToTarget(
+        initialCapital,
+        monthlyContribution,
+        recurringIncomes,
+        oneTimeIncomesMap,
+        netAnnualReturn,
+        inflationRate,
+        targetCapitalToday,
+        withdrawalRate
+    );
+
+    if (!simulation) {
+        return { error: 'sim_error' };
+    }
+
+    return {
+        targetCapitalToday,
+        netAnnualReturn,
+        maxSafeRate,
+        isSustainable,
+        simulation
+    };
+}
+
 function recalculate() {
     const initial = Number(document.getElementById("initialCapital").value) || 0;
     const monthly = Number(document.getElementById("monthlyContribution").value) || 0;
@@ -396,8 +459,8 @@ function recalculate() {
         }
     }
 
-    // Collect one-time incomes
-    const oneTimeIncomes = {};
+    // Collect one-time incomes as Array for the API
+    const oneTimeIncomes = [];
     const rowAmounts = document.querySelectorAll(".one-time-amount");
     const rowMonths = document.querySelectorAll(".one-time-month");
 
@@ -405,14 +468,26 @@ function recalculate() {
         const amt = Number(rowAmounts[i].value) || 0;
         const m = Number(rowMonths[i].value) || 0;
         if (amt > 0 && m > 0) {
-            oneTimeIncomes[m] = (oneTimeIncomes[m] || 0) + amt;
+            oneTimeIncomes.push({ amount: amt, month: m });
         }
     }
 
     const resultsDiv = document.getElementById("results");
     resultsDiv.innerHTML = "";
 
-    if (withdrawalRate <= 0 || targetIncome <= 0) {
+    const result = calculateFinancialData({
+        initialCapital: initial,
+        monthlyContribution: monthly,
+        recurringIncomes,
+        oneTimeIncomes,
+        annualReturn,
+        inflationRate,
+        taxRate,
+        targetIncome,
+        withdrawalRate
+    });
+
+    if (result.error === 'config_error') {
         resultsDiv.innerHTML = `
         <div class="result-card">
           <div class="result-title">${t('error_config')}</div>
@@ -422,33 +497,22 @@ function recalculate() {
         return;
     }
 
-    // Capital required TODAY for that income
-    const targetCapitalToday = targetIncome / (withdrawalRate / 100);
-
-    // Apply tax to nominal return
-    const netAnnualReturn = annualReturn * (1 - taxRate / 100);
-
-    // Validation: Check if withdrawal rate is sustainable in real terms
-    // Heuristic: If Withdrawal Rate > (Net Annual Return - Inflation), real capital depletes.
-    // We use a small buffer or direct comparison.
-    const warningEl = document.getElementById('withdrawalWarning');
-    const maxSafeRate = Math.max(0, netAnnualReturn - inflationRate);
+    // Update Max Safe Rate UI
     const maxSafeEl = document.getElementById('maxSafeRate');
-
     if (maxSafeEl) {
-        maxSafeEl.innerText = t('max_safe_rate', { rate: maxSafeRate.toFixed(2) });
+        maxSafeEl.innerText = t('max_safe_rate', { rate: result.maxSafeRate.toFixed(2) });
     }
 
-    if (withdrawalRate > maxSafeRate) {
+    // Update Warning UI
+    const warningEl = document.getElementById('withdrawalWarning');
+    if (!result.isSustainable) {
         warningEl.style.display = 'flex';
         warningEl.innerText = t('warning_unsustainable');
     } else {
         warningEl.style.display = 'none';
     }
 
-    const sim = simulateYearsToTarget(initial, monthly, recurringIncomes, oneTimeIncomes, netAnnualReturn, inflationRate, targetCapitalToday, withdrawalRate);
-
-    if (!sim) {
+    if (result.error === 'sim_error') {
         resultsDiv.innerHTML = `
         <div class="result-card">
           <div class="result-title">${t('result')}</div>
@@ -458,13 +522,15 @@ function recalculate() {
         return;
     }
 
+    const sim = result.simulation;
+
     const targetCard = document.createElement("div");
     targetCard.className = "result-card";
     targetCard.innerHTML = `
       <div class="result-title">${t('target_capital_future')}</div>
-      <div class="result-value highlight">USD ${formatMoney(sim.finalTargetCapital)}</div>
+      <div class="result-value highlight">USD ${formatMoney(sim.capitalAtTarget)}</div>
       <div class="result-sub">
-        ${t('equivalent_today', { amount: formatMoney(targetCapitalToday), years: sim.years.toFixed(1) })}
+        ${t('equivalent_today', { amount: formatMoney(result.targetCapitalToday), years: sim.years.toFixed(1) })}
       </div>
     `;
 
@@ -502,7 +568,7 @@ function recalculate() {
       </div>
       <div class="result-sub">
       <div class="result-sub">
-        ${t('net_return', { net: netAnnualReturn.toFixed(2), nominal: annualReturn, real: (netAnnualReturn - inflationRate).toFixed(2), growth: formatMoney(Math.max(growth, 0)), final: formatMoney(sim.finalCapital) })}
+        ${t('net_return', { net: result.netAnnualReturn.toFixed(2), nominal: annualReturn, real: (result.netAnnualReturn - inflationRate).toFixed(2), growth: formatMoney(Math.max(growth, 0)), final: formatMoney(sim.finalCapital) })}
       </div>
       </div>
     `;
@@ -511,9 +577,6 @@ function recalculate() {
     resultsDiv.appendChild(horizonCard);
     resultsDiv.appendChild(breakdownCard);
 
-    renderChart(sim.yearlyData, sim.reachedMonth);
-    renderMonthlyChart(sim.monthlyData, sim.reachedMonth);
-    saveState();
     renderChart(sim.yearlyData, sim.reachedMonth);
     renderMonthlyChart(sim.monthlyData, sim.reachedMonth);
     saveState();
@@ -812,14 +875,21 @@ function loadState() {
 }
 
 // Cargar estado al inicio
-loadState();
+// Cargar estado al inicio
+if (typeof document !== 'undefined') {
+    loadState();
 
-// Calcular al cargar
-recalculate();
+    // Calcular al cargar
+    recalculate();
 
-// Opcional: recalcular automáticamente al cambiar inputs
-const inputs = document.querySelectorAll("#initialCapital, #monthlyContribution, #annualReturn, #inflationRate, #taxRate, #targetIncome, #withdrawalRate");
-inputs.forEach(input => {
-    input.addEventListener("change", recalculate);
-    input.addEventListener("keyup", recalculate);
-});
+    // Opcional: recalcular automáticamente al cambiar inputs
+    const inputs = document.querySelectorAll("#initialCapital, #monthlyContribution, #annualReturn, #inflationRate, #taxRate, #targetIncome, #withdrawalRate");
+    inputs.forEach(input => {
+        input.addEventListener("change", recalculate);
+        input.addEventListener("keyup", recalculate);
+    });
+}
+
+if (typeof module !== 'undefined') {
+    module.exports = { calculateFinancialData, simulateYearsToTarget };
+}
